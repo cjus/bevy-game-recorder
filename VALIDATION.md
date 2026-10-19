@@ -1,5 +1,7 @@
 # Validation
 
+See [docs/PRD.md](docs/PRD.md) for acceptance requirements and [status.md](status.md) for current progress and next steps. Operational permission instructions are maintained in [README](README.md#permission).
+
 Host inspected: macOS 27.0 (26A428), Apple Silicon, Xcode macOS SDK; rustup toolchain 1.97.1. Default shell Rust was 1.75.0, so validation uses `/Users/cjus/.cargo/bin/cargo` and the repository toolchain file. No consumer repository was modified and no benchmark was run.
 
 ## Automated results
@@ -17,7 +19,7 @@ Host inspected: macOS 27.0 (26A428), Apple Silicon, Xcode macOS SDK; rustup tool
 
 ## Live acceptance checklist
 
-A build is not proof of a playable recording. After manually authorizing the responsible game/terminal app:
+A build is not proof of a playable recording. After manually authorizing the specific demo bundle described in [README](README.md#permission):
 
 1. Run without `--record`: verify no capture status or permission request, tone and animation work.
 2. Record 15 seconds and press Space. Wait for Finished; play the MP4 in QuickTime. Verify animated square, readable UI clock/status, audible tone, 1920×1080 dimensions, H.264, and duration near elapsed wall time.

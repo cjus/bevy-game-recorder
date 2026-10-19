@@ -4,6 +4,19 @@ An opt-in Rust/Bevy recorder for **macOS 15+**, Bevy **0.20**, and Rust **1.97.1
 
 This is a first implementation, not a claim of validated support for a consumer game. See [validation](VALIDATION.md) for exactly what has been tested.
 
+## Project tracking
+
+Follow the same milestone/gate convention as the other Rust repositories: **built** does not mean the live gate has passed.
+
+| File | Role |
+| --- | --- |
+| [docs/PRD.md](docs/PRD.md) | Requirements, scope, architecture decisions, milestones and acceptance criteria |
+| [status.md](status.md) | Read first when resuming: completed work, verified checks, current revision, blockers and exact next steps |
+| [VALIDATION.md](VALIDATION.md) | Detailed validation evidence and the remaining live acceptance checklist |
+| This README | Setup, canonical permission instructions, demo commands and integration API |
+
+Update status.md when progress changes and PRD.md when requirements or gates change. Live MP4 playback, application-audio isolation and A/V synchronization remain unverified; see [current status](status.md#blocker-and-unverified-behavior).
+
 ## Run the demo
 
 Requires Xcode command-line tools with a macOS 15+ SDK. No runtime encoder executable is needed. Use the rustup-managed Cargo if your PATH contains an older Homebrew Rust.
