@@ -1,0 +1,20 @@
+[package]
+name = "bevy-game-recorder"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Opt-in macOS window and application audio recording for Bevy"
+license = "MIT"
+repository = "https://github.com/cjus/bevy-game-recorder"
+
+[features]
+default = ["bevy"]
+bevy = ["dep:bevy"]
+demo = ["bevy", "bevy/2d", "bevy/ui", "bevy/default_font", "bevy/audio", "bevy/wav"]
+
+[dependencies]
+bevy = { version = "0.20.0", default-features = false, features = ["std", "bevy_window", "bevy_log"], optional = true }
+
+[[example]]
+name = "demo"
+required-features = ["demo"]
