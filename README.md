@@ -23,7 +23,21 @@ Default output: 1920×1080, at most 30 fps, SDR H.264 MP4, stereo 48 kHz applica
 cargo run --no-default-features --example preflight
 ```
 
-This only checks existing permission. The library never calls the permission-request API or changes settings. If false, manually enable the game or its launching terminal in **System Settings → Privacy & Security → Screen & System Audio Recording**, then quit and restart that application/terminal. For a distributed game, use a signed app bundle with a stable identity. The responsible application shown by macOS can differ between terminal and bundled launches. If it does not appear, use the system panel's add control to select the app. Permission belongs to the user; it is not granted by a successful build.
+This only checks existing permission; it neither requests access nor makes the app appear automatically in Settings. For the unbundled `cargo run` command, macOS may attribute access to the responsible terminal/launcher rather than `target/debug/examples/demo`; the preflight does not identify that responsible app. Do not assume the Codex-hosted check describes permission in your Terminal session.
+
+For an exact application identity, build the local bundle (does not launch or install it):
+
+```sh
+CARGO="$HOME/.cargo/bin/cargo" scripts/bundle-demo.sh
+```
+
+In **System Settings → Privacy & Security → Screen & System Audio Recording**, click **+** under the screen-and-audio list and select **`target/BevyRecorderDemo.app`** in this repository; enable **Bevy Recorder Demo**. Its bundle identifier is `dev.cjus.bevy-game-recorder-demo`, executable `Contents/MacOS/bevy-recorder-demo`. No prior programmatic permission request is needed when adding the app manually with **+** ([Apple instructions](https://support.apple.com/guide/mac-help/control-access-to-screen-and-system-audio-recording-mchld6aa7d23/mac)). Grant screen-and-audio access, not the audio-only option. Then launch that same bundle:
+
+```sh
+open "$PWD/target/BevyRecorderDemo.app" --args --record "$PWD/gameplay.mp4"
+```
+
+Quit any already running demo before relaunching; `open --args` does not deliver startup arguments to an existing process. The library never requests permission automatically or changes settings. The bundle is locally ad-hoc signed, not notarized; rebuilding can require reauthorization. Production apps should use a stable Developer ID signature. Bundle packaging and signature have been verified; permission attribution through an actual LaunchServices launch remains untested because we have not launched capture or changed permissions.
 
 ## Integrate
 
@@ -55,7 +69,7 @@ Use `ResMut<Recorder>::stop()` to save without quitting, or `quit()` to save and
 
 `Recorder.state` exposes Starting, Recording, Stopping, Finished or Failed(error); None means disabled. Check failures and surface them to players. Stopping is nonblocking. Start/finalization times out after 30 seconds of polling, reports failure, and preserves partial output rather than claiming success. There is one recording session per process in this first version; restart to record again.
 
-For custom integration without Bevy, disable default features and use `RecordingSession` on the macOS main thread. Continue pumping the native event loop and calling `poll()` until terminal. `Drop` requests stop but cannot promise finalization after the event loop exits.
+For custom integration without Bevy, disable default features and use `RecordingSession` on the macOS main thread. Continue pumping the native event loop and calling `poll()` until terminal. `Drop` aborts unfinished native work, including pending discovery; it cannot promise finalization. Continue polling after `stop()` to save successfully.
 
 ## Backend and audio tradeoffs
 
@@ -88,6 +102,7 @@ cargo test
 cargo check --all-targets --features demo
 cargo clippy --all-targets --features demo -- -D warnings
 cargo fmt --all -- --check
+scripts/test-native.sh
 ```
 
 Only macOS backend compilation is supported today. Dependency build concurrency can be limited with `-j 2`; no benchmark is needed. The native bridge compiles with warnings treated as errors. See [manual acceptance checks](VALIDATION.md) before integrating into a consumer game.

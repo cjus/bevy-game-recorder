@@ -17,12 +17,17 @@
 @end
 @implementation BGRSession
 - (void)fail:(NSString *)message {
+    if (self.state >= 4) return; // Terminal outcomes are immutable.
     self.error = message;
     self.state = 5;
     if (self.stream) [self.stream stopCaptureWithCompletionHandler:^(NSError *e) { (void)e; }];
 }
 - (void)stop {
     self.stopRequested = YES;
+    if (self.state == 1 && !self.stream) {
+        [self fail:@"Recording cancelled before capture started; no video was finalized."];
+        return;
+    }
     if (self.state != 2) return; // Starting callback honors pending stop.
     self.state = 3;
     [self.stream stopCaptureWithCompletionHandler:^(NSError *e) {
@@ -32,7 +37,7 @@
 - (void)recordingOutputDidStartRecording:(SCRecordingOutput *)output {
     (void)output;
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.state == 5) return;
+        if (self.state != 1) return;
         self.state = 2;
         if (self.stopRequested) [self stop];
     });
@@ -73,6 +78,7 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
     NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
     [SCShareableContent getShareableContentExcludingDesktopWindows:YES onScreenWindowsOnly:NO completionHandler:^(SCShareableContent *content, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            if (session.state != 1) return; // Discovery may finish after cancellation.
             if (error) { [session fail:error.localizedDescription]; return; }
             SCWindow *target = nil;
             for (SCWindow *window in content.windows) {
@@ -99,7 +105,11 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
             NSError *attachError = nil;
             if (![session.stream addRecordingOutput:session.output error:&attachError]) { [session fail:attachError.localizedDescription]; return; }
             [session.stream startCaptureWithCompletionHandler:^(NSError *e) {
-                dispatch_async(dispatch_get_main_queue(), ^{ if (e) [session fail:e.localizedDescription]; });
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (e) [session fail:e.localizedDescription];
+                    // A timed-out/dropped owner must never leave a late start running.
+                    else if (session.state == 5) [session.stream stopCaptureWithCompletionHandler:^(NSError *ignored) { (void)ignored; }];
+                });
             }];
         });
     }];
@@ -108,3 +118,5 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
 int bgr_state(void) { return session ? session.state : 0; }
 const char *bgr_error(void) { return session.error ? session.error.UTF8String : ""; }
 void bgr_stop(void) { [session stop]; }
+
+void bgr_abort(void) { [session fail:@"Recording owner cancelled or timed out; output may be incomplete."]; }

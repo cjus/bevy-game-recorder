@@ -91,6 +91,7 @@ unsafe extern "C" {
     fn bgr_state() -> i32;
     fn bgr_error() -> *const std::ffi::c_char;
     fn bgr_stop();
+    fn bgr_abort();
 }
 impl RecordingSession {
     /// Does not display a permission prompt or change privacy settings.
@@ -176,12 +177,17 @@ impl RecordingSession {
         if self.state.is_terminal() {
             return &self.state;
         }
-        if matches!(
-            self.state,
-            RecordingState::Starting | RecordingState::Stopping
-        ) && self.transition_at.elapsed() > std::time::Duration::from_secs(30)
-        {
-            self.stop();
+        #[cfg(target_os = "macos")]
+        // SAFETY: read main-thread native state before evaluating elapsed time.
+        let native_state = unsafe { bgr_state() };
+        #[cfg(not(target_os = "macos"))]
+        let native_state = 5;
+        if transition_timed_out(&self.state, native_state, self.transition_at.elapsed()) {
+            #[cfg(target_os = "macos")]
+            // SAFETY: this session remains on its creating main thread.
+            unsafe {
+                bgr_abort();
+            }
             self.state = RecordingState::Failed(format!(
                 "Native start/finalization timed out; any partial output remains in {}",
                 self.staging.display()
@@ -192,7 +198,7 @@ impl RecordingSession {
         // SAFETY: native singleton remains alive; error pointer is copied on the
         // main thread before another callback can mutate the NSString.
         unsafe {
-            self.state = match bgr_state() {
+            self.state = match native_state {
                 1 => {
                     if self.state == RecordingState::Stopping {
                         RecordingState::Stopping
@@ -219,6 +225,15 @@ impl RecordingSession {
         &self.state
     }
 }
+fn transition_timed_out(
+    state: &RecordingState,
+    native_state: i32,
+    elapsed: std::time::Duration,
+) -> bool {
+    matches!(state, RecordingState::Starting | RecordingState::Stopping)
+        && matches!(native_state, 1 | 3)
+        && elapsed > std::time::Duration::from_secs(30)
+}
 fn publish(staging: &std::path::Path, output: &std::path::Path) -> std::io::Result<()> {
     std::fs::hard_link(staging.join("capture.mp4"), output)?;
     let _ = std::fs::remove_file(staging.join("capture.mp4"));
@@ -227,13 +242,42 @@ fn publish(staging: &std::path::Path, output: &std::path::Path) -> std::io::Resu
 }
 impl Drop for RecordingSession {
     fn drop(&mut self) {
-        self.stop();
-    } // Best effort only; keep polling to guarantee finalization.
+        if !self.state.is_terminal() {
+            #[cfg(target_os = "macos")]
+            // SAFETY: ownership is !Send; cancel even a pending asynchronous start.
+            unsafe {
+                bgr_abort();
+            }
+        }
+    } // Dropping early cancels; poll to completion to guarantee finalization.
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_progress_wins_over_stale_polling_deadline() {
+        let late = std::time::Duration::from_secs(60);
+        for native in [2, 4, 5] {
+            assert!(!transition_timed_out(
+                &RecordingState::Starting,
+                native,
+                late
+            ));
+            assert!(!transition_timed_out(
+                &RecordingState::Stopping,
+                native,
+                late
+            ));
+        }
+        assert!(transition_timed_out(&RecordingState::Starting, 1, late));
+        assert!(transition_timed_out(&RecordingState::Stopping, 3, late));
+        assert!(!transition_timed_out(
+            &RecordingState::Stopping,
+            3,
+            std::time::Duration::from_secs(2)
+        ));
+    }
     #[test]
     fn defaults_are_shareable() {
         let c = RecordingConfig::new("game.mp4", "Game");

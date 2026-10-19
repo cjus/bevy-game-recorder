@@ -25,8 +25,19 @@ fn main() {
             _ => panic!("Unknown or repeated argument: {arg}; use --help"),
         }
     }
+    // Use bundle resources when launched via Finder/open, without relying on cwd.
+    let bundled_assets = std::env::current_exe().ok().and_then(|exe| {
+        let assets = exe.parent()?.join("../Resources/assets");
+        assets
+            .is_dir()
+            .then(|| assets.to_string_lossy().into_owned())
+    });
+    let assets = AssetPlugin {
+        file_path: bundled_assets.unwrap_or_else(|| "assets".into()),
+        ..default()
+    };
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugins(DefaultPlugins.set(assets).set(WindowPlugin {
             primary_window: Some(Window {
                 title: TITLE.into(),
                 resolution: (1280, 720).into(),
