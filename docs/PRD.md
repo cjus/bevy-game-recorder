@@ -2,7 +2,7 @@
 
 Owner: Carlos. Repository: `cjus/bevy-game-recorder`.
 Status: M0 is built and its automated gate has passed; M1 waits on permission and live testing.
-Last updated: 2026-10-19.
+Last updated: 2026-10-24.
 
 This file defines requirements, scope and acceptance criteria. [status.md](../status.md) tracks progress, evidence, blockers and next steps. [README](../README.md) is the operational reference for setup and integration; [VALIDATION](../VALIDATION.md) records executed checks and the live acceptance procedure. An implemented requirement is not automatically a validated requirement.
 
@@ -26,7 +26,7 @@ Out of scope: Windows/Linux capture, headless recording, uploading, microphone c
 | Responsive capture | Capture and encoding do not block the render thread; capture queue is bounded. | Three-frame ScreenCaptureKit queue; no Rust frame queues, GPU waits or pipe writes. OS encoder internals have no exposed total-memory bound. |
 | Correct timing | Late/static frames preserve elapsed duration; audio/video remain synchronized under load. | Native timestamps used; duration and A/V sync unverified. Variable cadence is allowed; exact CFR is not required. |
 | Application audio | The game application's output mix is audible and unrelated application audio is absent; microphone remains disabled. | Window filter policy and explicit configuration reviewed; audible mix and audio isolation unverified. |
-| Graceful stop/quit | Normal stop, Escape and window close wait for finalization before reporting Saved or exiting. | Lifecycle regression tests pass; real encoder finalization and playback pending. |
+| Graceful stop/quit | Normal stop, Escape, window close, ⌘Q, the Dock's Quit and Ctrl+C wait for finalization before reporting Saved or exiting. | Lifecycle regression tests pass, including AppKit's `terminate:` refused while unfinished and Ctrl+C turned into `quit()` (#1); real encoder finalization and playback pending. |
 | Safe failures | Permission, window-selection, encoder, disk and destination errors are visible; existing files are not overwritten. | Validation/no-clobber/lifecycle tests pass; native failure scenarios need live checks. |
 | Local-only files | Completed video remains at the requested local destination; partial output is identified honestly. | Local staging and non-overwriting publication implemented; no upload path exists. |
 
@@ -55,7 +55,7 @@ Do not equate the unbundled preflight result with the permission state of a sepa
 | --- | --- | --- | --- |
 | M0 · Foundations | Library, native backend, Bevy plugin, demo, integration docs and regression checks | Build, tests, Clippy, formatting and bundle checks pass | Built; automated gate passed on the baseline in status.md; pushed to the feature branch, not merged |
 | M1 · Live recording | Playable output, composed UI, application-audio isolation, synchronization, resize and real shutdown/errors | Complete VALIDATION's live checklist and record evidence | Waiting on Carlos's permission setup, then live tests |
-| M2 · Consumer integration | Separately authorized chessgui and deepbore-rs integration | Each consumer's rendering, audio and quit paths pass their own checks | Planned; not started |
+| M2 · Consumer integration | Separately authorized chessgui and deepbore-rs integration | Each consumer's rendering, audio and quit paths pass their own checks | chessgui started (cjus/chessgui#175, 2026-10-24); deepbore-rs not started |
 
 ## Risks
 
@@ -71,6 +71,7 @@ Do not equate the unbundled preflight result with the permission state of a sepa
 | 2026-10-19 | macOS 15+ first, with ScreenCaptureKit and SCRecordingOutput | User accepted Apple-only scope; native composed-window and application-audio capture avoids private Bevy mix internals and FFmpeg deployment |
 | 2026-10-19 | Keep output local, microphone disabled, window and PID checked | Recording scope is the selected game window and its application's audio |
 | 2026-10-19 | Provide a named demo app bundle | Makes the manual permission target explicit; no automatic permission requests |
+| 2026-10-24 | The plugin owns every normal way to quit: window close, `terminate:` (⌘Q, Dock, logout) and Ctrl+C (#1) | Consumers can't refuse `terminate:` or replace Bevy's Ctrl+C handler without native code; Solrac forbids `unsafe` |
 | 2026-10-19 | Track requirements here and progress in root status.md | Follow the Rust repositories' milestone/gate conventions while keeping the user-requested paths |
 
 ## Open questions

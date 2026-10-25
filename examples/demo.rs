@@ -1,4 +1,6 @@
-use bevy::{audio::PlaybackSettings, prelude::*, window::ExitCondition};
+use bevy::{
+    app::TerminalCtrlCHandlerPlugin, audio::PlaybackSettings, prelude::*, window::ExitCondition,
+};
 use bevy_game_recorder::{Recorder, RecorderPlugin, RecordingConfig};
 const TITLE: &str = "Bevy Game Recorder Demo";
 #[derive(Component)]
@@ -18,7 +20,7 @@ fn main() {
             }
             "--help" => {
                 println!(
-                    "demo [--record output.mp4]\nSpace: stop and save. Escape/window close: save and quit.\nA quiet test tone plays to verify application audio."
+                    "demo [--record output.mp4]\nSpace: stop and save. Escape, window close, ⌘Q or Ctrl+C: save and quit.\nA quiet test tone plays to verify application audio."
                 );
                 return;
             }
@@ -37,16 +39,22 @@ fn main() {
         ..default()
     };
     App::new()
-        .add_plugins(DefaultPlugins.set(assets).set(WindowPlugin {
-            primary_window: Some(Window {
-                title: TITLE.into(),
-                resolution: (1280, 720).into(),
-                ..default()
-            }),
-            close_when_requested: false,
-            exit_condition: ExitCondition::DontExit,
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(assets)
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: TITLE.into(),
+                        resolution: (1280, 720).into(),
+                        ..default()
+                    }),
+                    close_when_requested: false,
+                    exit_condition: ExitCondition::DontExit,
+                    ..default()
+                })
+                // The recorder handles Ctrl+C, so it can finalize the MP4 first.
+                .disable::<TerminalCtrlCHandlerPlugin>(),
+        )
         .add_plugins(RecorderPlugin(recording))
         .add_systems(Startup, setup)
         .add_systems(Update, animate)

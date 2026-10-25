@@ -2,6 +2,7 @@
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <objc/runtime.h>
 #include <unistd.h>
 
 // All state and public entry points live on the macOS main thread. Framework
@@ -12,6 +13,7 @@
 @property NSString *error;
 @property int state;
 @property BOOL stopRequested;
+@property BOOL quitRequested;
 - (void)fail:(NSString *)message;
 - (void)stop;
 @end
@@ -57,6 +59,39 @@
 @end
 static BGRSession *session;
 
+// -[NSApplication terminate:] (⌘Q, the Dock's Quit, logout) asks the delegate's
+// applicationShouldTerminate: first. winit's delegate has none, so AppKit goes straight to
+// applicationWillTerminate:, Bevy clears its world and the process exits before the MP4 is
+// finalized. While a session is unfinished, the guard refuses and notes the request, which Rust
+// turns into a graceful stop and quit; once it is finished or failed, quitting goes ahead.
+static IMP previousShouldTerminate;
+static NSApplicationTerminateReply bgr_should_terminate(id self, SEL cmd, NSApplication *sender) {
+    if (session && session.state >= 1 && session.state <= 3) {
+        session.quitRequested = YES;
+        return NSTerminateCancel;
+    }
+    if (previousShouldTerminate)
+        return ((NSApplicationTerminateReply (*)(id, SEL, NSApplication *))previousShouldTerminate)(self, cmd, sender);
+    return NSTerminateNow;
+}
+// Added to the delegate's class at run time (or wrapping the class's own method), once.
+// terminate: looks the method up when it is called, so the delegate needn't be set again (the
+// native harness checks this against AppKit's real terminate:).
+static void bgr_guard_termination(void) {
+    static BOOL installed;
+    id<NSApplicationDelegate> delegate = NSApp.delegate;
+    if (installed || !delegate) return;
+    Class cls = object_getClass(delegate);
+    SEL selector = @selector(applicationShouldTerminate:);
+    const char *types = protocol_getMethodDescription(@protocol(NSApplicationDelegate), selector, NO, YES).types;
+    Method inherited = class_getInstanceMethod(cls, selector);
+    IMP before = inherited ? method_getImplementation(inherited) : NULL;
+    if (!class_addMethod(cls, selector, (IMP)bgr_should_terminate, types ? types : "Q@:@"))
+        before = method_setImplementation(class_getInstanceMethod(cls, selector), (IMP)bgr_should_terminate);
+    previousShouldTerminate = before;
+    installed = YES;
+}
+
 int bgr_is_main_thread(void) { return [NSThread isMainThread] ? 1 : 0; }
 int bgr_preflight(void) { return CGPreflightScreenCaptureAccess() ? 1 : 0; }
 int bgr_start(const char *path, const char *title, int width, int height, int fps, int audio) {
@@ -64,6 +99,7 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
     if (session) return -1;
     session = [BGRSession new];
     session.state = 1;
+    bgr_guard_termination();
     if (!CGPreflightScreenCaptureAccess()) {
         [session fail:@"Screen recording permission is missing. Enable this game/launching terminal in System Settings > Privacy & Security > Screen & System Audio Recording, then restart. No permission was requested automatically."];
         return 0;
@@ -118,5 +154,10 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
 int bgr_state(void) { return session ? session.state : 0; }
 const char *bgr_error(void) { return session.error ? session.error.UTF8String : ""; }
 void bgr_stop(void) { [session stop]; }
+int bgr_take_quit_request(void) {
+    if (!session.quitRequested) return 0;
+    session.quitRequested = NO;
+    return 1;
+}
 
 void bgr_abort(void) { [session fail:@"Recording owner cancelled or timed out; output may be incomplete."]; }
