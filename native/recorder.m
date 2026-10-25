@@ -9,19 +9,40 @@
 // callbacks hop to it; no frame data crosses the FFI and no pipe can block Bevy.
 @interface BGRSession : NSObject <SCStreamDelegate, SCRecordingOutputDelegate>
 @property SCStream *stream;
+@property SCStreamConfiguration *config;
 @property SCRecordingOutput *output;
+@property(weak) NSWindow *window;
+@property id resizeObserver;
+@property BOOL updating;
+@property BOOL updatePending;
 @property NSString *error;
 @property int state;
 @property BOOL stopRequested;
 @property BOOL quitRequested;
 - (void)fail:(NSString *)message;
 - (void)stop;
+- (void)track;
 @end
+
+// The title bar's separator, a hairline macOS draws over the top of the content, in points.
+static const CGFloat BGR_SEPARATOR = 1.0;
+
+// The window's content below its title bar, as a single-window stream's sourceRect measures it:
+// in points from the window's top left. contentLayoutRect is in the window's own coordinates,
+// from its bottom left, and leaves out the title bar (in full screen, there is none), but not
+// its separator. A window with no content to measure gives CGRectNull: the whole window.
+static CGRect bgr_content(CGSize frame, CGRect layout) {
+    if (!(layout.size.width > 0 && layout.size.height > BGR_SEPARATOR)) return CGRectNull;
+    CGFloat top = frame.height - CGRectGetMaxY(layout);
+    CGFloat separator = top > 0 ? BGR_SEPARATOR : 0;
+    return CGRectMake(layout.origin.x, top + separator, layout.size.width, layout.size.height - separator);
+}
 @implementation BGRSession
 - (void)fail:(NSString *)message {
     if (self.state >= 4) return; // Terminal outcomes are immutable.
     self.error = message;
     self.state = 5;
+    [self stopTracking];
     if (self.stream) [self.stream stopCaptureWithCompletionHandler:^(NSError *e) { (void)e; }];
 }
 - (void)stop {
@@ -36,17 +57,47 @@
         dispatch_async(dispatch_get_main_queue(), ^{ if (e && self.state != 5) [self fail:e.localizedDescription]; });
     }];
 }
+// Follows the window's content when it is resized or goes full screen: the video keeps its
+// size, and the new content is scaled to fit it, keeping its shape. One update is in flight at a
+// time; a resize meanwhile is applied when it finishes, so a live resize keeps up without a
+// queue. A failed update leaves the earlier crop, and the recording carries on.
+- (void)track {
+    if (self.state != 2 || !self.window) return;
+    CGRect content = bgr_content(self.window.frame.size, self.window.contentLayoutRect);
+    if (CGRectIsNull(content) || CGRectEqualToRect(content, self.config.sourceRect)) return;
+    if (self.updating) { self.updatePending = YES; return; }
+    self.updating = YES;
+    self.config.sourceRect = content;
+    [self.stream updateConfiguration:self.config completionHandler:^(NSError *e) {
+        (void)e;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.updating = NO;
+            if (!self.updatePending) return;
+            self.updatePending = NO;
+            [self track];
+        });
+    }];
+}
+- (void)stopTracking {
+    if (self.resizeObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.resizeObserver];
+    self.resizeObserver = nil;
+}
 - (void)recordingOutputDidStartRecording:(SCRecordingOutput *)output {
     (void)output;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.state != 1) return;
         self.state = 2;
         if (self.stopRequested) [self stop];
+        else [self track]; // A resize while it started.
     });
 }
 - (void)recordingOutputDidFinishRecording:(SCRecordingOutput *)output {
     (void)output;
-    dispatch_async(dispatch_get_main_queue(), ^{ if (self.state != 5) self.state = 4; });
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.state == 5) return;
+        self.state = 4;
+        [self stopTracking];
+    });
 }
 - (void)recordingOutput:(SCRecordingOutput *)output didFailWithError:(NSError *)error {
     (void)output;
@@ -92,9 +143,9 @@ static void bgr_guard_termination(void) {
     installed = YES;
 }
 
-// The video takes the window's shape when recording starts, as large as fits in the configured
-// size, with even sides for H.264; a later resize is scaled to fit it, keeping its shape. A
-// window too small to measure gets the configured size.
+// The video takes the shape of the window's content when recording starts, as large as fits in
+// the configured size, with even sides for H.264; a later resize is scaled to fit it, keeping its
+// shape. Content too small to measure gets the configured size.
 static void bgr_fit(int width, int height, double windowWidth, double windowHeight, int *outWidth, int *outHeight) {
     *outWidth = width;
     *outHeight = height;
@@ -126,7 +177,7 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
     NSInteger windowID = 0;
     int matches = 0;
     for (NSWindow *window in NSApp.windows) {
-        if ([window.title isEqualToString:wanted] && window.isVisible) { windowID = window.windowNumber; matches++; }
+        if ([window.title isEqualToString:wanted] && window.isVisible) { windowID = window.windowNumber; session.window = window; matches++; }
     }
     if (matches != 1) { [session fail:@"Expected exactly one visible game window with the configured title."]; return 0; }
     NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
@@ -141,8 +192,13 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
             if (!target) { [session fail:@"Game window is unavailable for capture."]; return; }
             SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:target];
             SCStreamConfiguration *config = [SCStreamConfiguration new];
+            // The content only: the title bar, with its state and macOS's capture indicator, stays
+            // in the window for the player and out of the video (#6).
+            CGRect content = session.window ? bgr_content(session.window.frame.size, session.window.contentLayoutRect) : CGRectNull;
+            CGSize source = CGRectIsNull(content) ? target.frame.size : content.size;
+            if (!CGRectIsNull(content)) config.sourceRect = content;
             int videoWidth, videoHeight;
-            bgr_fit(width, height, target.frame.size.width, target.frame.size.height, &videoWidth, &videoHeight);
+            bgr_fit(width, height, source.width, source.height, &videoWidth, &videoHeight);
             config.width = videoWidth; config.height = videoHeight;
             config.minimumFrameInterval = CMTimeMake(1, fps);
             config.queueDepth = 3;
@@ -154,7 +210,13 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
             config.captureMicrophone = NO;
             config.sampleRate = 48000; config.channelCount = 2;
             config.captureDynamicRange = SCCaptureDynamicRangeSDR;
+            session.config = config;
             session.stream = [[SCStream alloc] initWithFilter:filter configuration:config delegate:session];
+            __weak BGRSession *tracked = session;
+            session.resizeObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidResizeNotification object:session.window queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+                (void)note;
+                [tracked track];
+            }];
             SCRecordingOutputConfiguration *recording = [SCRecordingOutputConfiguration new];
             recording.outputURL = url; recording.videoCodecType = AVVideoCodecTypeH264; recording.outputFileType = AVFileTypeMPEG4;
             session.output = [[SCRecordingOutput alloc] initWithConfiguration:recording delegate:session];

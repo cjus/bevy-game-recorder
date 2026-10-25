@@ -7,8 +7,9 @@ mod plugin;
 #[cfg(feature = "bevy")]
 pub use plugin::{Recorder, RecorderPlugin};
 
-/// Output configuration. The video takes the window's shape when recording starts, as large as
-/// fits in `width` x `height`; resizing the window later doesn't change the video's size.
+/// Output configuration. The video shows the window's content, without its title bar, and takes
+/// its shape when recording starts, as large as fits in `width` x `height`; resizing the window
+/// later doesn't change the video's size.
 #[derive(Clone, Debug)]
 pub struct RecordingConfig {
     pub output: PathBuf,
