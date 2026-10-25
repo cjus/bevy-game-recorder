@@ -91,6 +91,7 @@ unsafe extern "C" {
     fn bgr_state() -> i32;
     fn bgr_error() -> *const std::ffi::c_char;
     fn bgr_stop();
+    fn bgr_take_quit_request() -> i32;
     fn bgr_abort();
 }
 impl RecordingSession {
@@ -172,6 +173,20 @@ impl RecordingSession {
         }
         self.state = RecordingState::Stopping;
         self.transition_at = std::time::Instant::now();
+    }
+    /// Whether macOS was asked to quit the app (⌘Q, the Dock's Quit, logout) since the last
+    /// call. While the session is unfinished the native quit is refused, so the MP4 can be
+    /// finalized: call `stop()`, keep polling, and quit once the state is terminal.
+    pub fn take_quit_request(&mut self) -> bool {
+        #[cfg(target_os = "macos")]
+        // SAFETY: this !Send session is polled on its creating main thread.
+        unsafe {
+            bgr_take_quit_request() != 0
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
     }
     pub fn poll(&mut self) -> &RecordingState {
         if self.state.is_terminal() {

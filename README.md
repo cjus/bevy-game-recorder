@@ -26,7 +26,7 @@ cargo run --features demo --example demo
 cargo run --features demo --example demo -- --record gameplay.mp4
 ```
 
-Without `--record`, no capture or permission check occurs. The demo animates a square, renders a UI clock/status indicator, and plays a quiet looping 440 Hz tone. **Space** stops and saves; **Escape** or window close finalizes then quits. Keep the event loop running while “Stopping” is displayed. The title bar also shows recorder state. The demo's generated tone is included in `assets/tone.wav` and needs no download.
+Without `--record`, no capture or permission check occurs. The demo animates a square, renders a UI clock/status indicator, and plays a quiet looping 440 Hz tone. **Space** stops and saves; **Escape**, window close, **⌘Q** or **Ctrl+C** finalizes then quits. Keep the event loop running while “Stopping” is displayed. The title bar also shows recorder state. The demo's generated tone is included in `assets/tone.wav` and needs no download.
 
 Default output: 1920×1080, at most 30 fps, SDR H.264 MP4, stereo 48 kHz application audio. Apple controls bitrate and audio codec selection. Output dimensions stay fixed across window resizing, with aspect ratio preserved. Recording is timestamped media with potentially variable frame cadence, not guaranteed constant-frame-rate output. A delayed frame does not remove elapsed time by advancing a raw frame counter.
 
@@ -60,25 +60,35 @@ bevy-game-recorder = { path = "../bevy-game-recorder" }
 ```
 
 ```rust,no_run
-use bevy::{prelude::*, window::ExitCondition};
+use bevy::{app::TerminalCtrlCHandlerPlugin, prelude::*, window::ExitCondition};
 use bevy_game_recorder::{RecorderPlugin, RecordingConfig};
 
 let requested_output: Option<String> = None; // Populate from your own CLI parser.
 let config = requested_output.map(|path| RecordingConfig::new(path, "My Game"));
 App::new()
-    .add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window { title: "My Game".into(), ..default() }),
-        close_when_requested: false,
-        exit_condition: ExitCondition::DontExit,
-        ..default()
-    }))
+    .add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window { title: "My Game".into(), ..default() }),
+                close_when_requested: false,
+                exit_condition: ExitCondition::DontExit,
+                ..default()
+            })
+            .disable::<TerminalCtrlCHandlerPlugin>(),
+    )
     .add_plugins(RecorderPlugin(config))
     .run();
 ```
 
 The plugin expects a primary window with an exact, unique native title at startup, waits three update frames for creation, and verifies the selected native window belongs to the current process. Failure to resolve it fails closed. It does not fall back to a display or another application's window. Install after `DefaultPlugins`. Avoid changing the primary title independently; the recorder appends its visible status. Add an in-game indicator based on `Recorder.state` if the title bar is hidden (see demo).
 
-Use `ResMut<Recorder>::stop()` to save without quitting, or `quit()` to save and quit. Route **all** game quit/menu actions through `quit()`. Direct `AppExit`, `process::exit`, panic/abort, force quit and signals bypass graceful finalization. Window close is handled by the plugin; automatic window destruction and automatic exit must be disabled as above. Other windows' close handling remains the consumer's responsibility.
+Use `ResMut<Recorder>::stop()` to save without quitting, or `quit()` to save and quit. Route **all** game quit/menu actions through `quit()`. Direct `AppExit`, `process::exit`, panic/abort, force quit and signals other than Ctrl+C bypass graceful finalization. The plugin handles the rest of the ways to quit:
+
+- **Window close**: automatic window destruction and automatic exit must be disabled as above. Other windows' close handling remains the consumer's responsibility.
+- **⌘Q, the Dock's Quit, logout and shutdown** (`-[NSApplication terminate:]`): while a recording is unfinished, macOS's quit is refused (`applicationShouldTerminate:` answers `NSTerminateCancel`, added to winit's application delegate when recording starts) and becomes `quit()`. Once the recording is finished or has failed, quitting goes ahead as usual. A logout or shutdown is cancelled by the refusal; the user starts it again after the app has quit.
+- **Ctrl+C** in the terminal: the plugin sets the process's Ctrl+C handler and turns Ctrl+C into `quit()`. Bevy's `TerminalCtrlCHandlerPlugin`, part of `DefaultPlugins`, would write `AppExit` at once, so it must be disabled as above (the plugin panics otherwise, as it does for the window settings). A second Ctrl+C exits at once without finalizing, as with Bevy's handler.
+
+While a recording is starting or stopping, the plugin asks for frames (`RequestRedraw`), so a reactive update mode keeps polling it.
 
 `Recorder.state` exposes Starting, Recording, Stopping, Finished or Failed(error); None means disabled. Check failures and surface them to players. Stopping is nonblocking. Start/finalization times out after 30 seconds of polling, reports failure, and preserves partial output rather than claiming success. There is one recording session per process in this first version; restart to record again.
 
