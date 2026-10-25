@@ -24,13 +24,18 @@
 - (void)track;
 @end
 
+// The title bar's separator, a hairline macOS draws over the top of the content, in points.
+static const CGFloat BGR_SEPARATOR = 1.0;
+
 // The window's content below its title bar, as a single-window stream's sourceRect measures it:
 // in points from the window's top left. contentLayoutRect is in the window's own coordinates,
-// from its bottom left, and leaves out the title bar (in full screen, there is none). A window
-// with no content to measure gives CGRectNull: the whole window.
+// from its bottom left, and leaves out the title bar (in full screen, there is none), but not
+// its separator. A window with no content to measure gives CGRectNull: the whole window.
 static CGRect bgr_content(CGSize frame, CGRect layout) {
-    if (!(layout.size.width > 0 && layout.size.height > 0)) return CGRectNull;
-    return CGRectMake(layout.origin.x, frame.height - CGRectGetMaxY(layout), layout.size.width, layout.size.height);
+    if (!(layout.size.width > 0 && layout.size.height > BGR_SEPARATOR)) return CGRectNull;
+    CGFloat top = frame.height - CGRectGetMaxY(layout);
+    CGFloat separator = top > 0 ? BGR_SEPARATOR : 0;
+    return CGRectMake(layout.origin.x, top + separator, layout.size.width, layout.size.height - separator);
 }
 @implementation BGRSession
 - (void)fail:(NSString *)message {

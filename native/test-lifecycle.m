@@ -90,12 +90,12 @@ int main(void) {
         session.state = 5;
         assert([NSApp.delegate applicationShouldTerminate:NSApp] == NSTerminateNow);
         assert(bgr_take_quit_request() == 0);
-        // The video takes the window's shape, as large as fits, with even sides.
+        // The video takes the content's shape, as large as fits, with even sides.
         int w, h;
         bgr_fit(1920, 1080, 1600, 900, &w, &h);
         assert(w == 1920 && h == 1080); // 16:9 fills it.
-        bgr_fit(1920, 1080, 1440, 932, &w, &h);
-        assert(w == 1668 && h == 1080); // Solrac's window: no band.
+        bgr_fit(1920, 1080, 1440, 899, &w, &h);
+        assert(w == 1730 && h == 1080); // Solrac's content: no band.
         bgr_fit(1920, 1080, 2400, 900, &w, &h);
         assert(w == 1920 && h == 720); // Wider: full width.
         bgr_fit(1920, 1080, 801, 1201, &w, &h);
@@ -109,13 +109,14 @@ int main(void) {
         bgr_fit(1920, 1080, 1, 100000, &w, &h);
         assert(w == 1920 && h == 1080); // Too thin to encode: the configured size.
 
-        // The content's rectangle, from the window's top left, below its title bar.
+        // The content's rectangle, from the window's top left, below its title bar and separator.
         CGRect crop = bgr_content(CGSizeMake(1440, 932), CGRectMake(0, 0, 1440, 900));
-        assert(CGRectEqualToRect(crop, CGRectMake(0, 32, 1440, 900))); // A titled window.
+        assert(CGRectEqualToRect(crop, CGRectMake(0, 33, 1440, 899))); // A titled window.
         crop = bgr_content(CGSizeMake(1728, 1117), CGRectMake(0, 0, 1728, 1117));
         assert(CGRectEqualToRect(crop, CGRectMake(0, 0, 1728, 1117))); // Full screen: no title bar.
         crop = bgr_content(CGSizeMake(1440, 932), CGRectMake(8, 4, 1424, 900));
-        assert(CGRectEqualToRect(crop, CGRectMake(8, 28, 1424, 900))); // Measured from the top.
+        assert(CGRectEqualToRect(crop, CGRectMake(8, 29, 1424, 899))); // Measured from the top.
+        assert(CGRectIsNull(bgr_content(CGSizeMake(1440, 33), CGRectMake(0, 0, 1440, 1)))); // Only the separator.
         assert(CGRectIsNull(bgr_content(CGSizeMake(1440, 932), CGRectZero))); // Nothing to measure.
 
         // A resize while recording crops to the new content, one update at a time, and the last
@@ -130,7 +131,7 @@ int main(void) {
         [session track];
         assert(updates.crops.count == 1);
         crop = updates.crops[0].rectValue;
-        assert(crop.origin.x == 0 && crop.origin.y > 0 && crop.size.width == 1440 && crop.size.height == 900);
+        assert(crop.origin.x == 0 && crop.origin.y > 0 && crop.size.width == 1440 && crop.size.height == 899);
         [window setContentSize:NSMakeSize(1200, 800)];
         [session track];
         [window setContentSize:NSMakeSize(1000, 700)];
@@ -140,7 +141,7 @@ int main(void) {
         drain();
         assert(updates.crops.count == 2);
         crop = updates.crops[1].rectValue;
-        assert(crop.size.width == 1000 && crop.size.height == 700); // Straight to the last size.
+        assert(crop.size.width == 1000 && crop.size.height == 699); // Straight to the last size.
         updates.finish(nil);
         drain();
         [session track];
