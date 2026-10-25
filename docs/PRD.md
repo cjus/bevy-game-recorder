@@ -21,7 +21,7 @@ Out of scope: Windows/Linux capture, headless recording, uploading, microphone c
 | Opt-in recording | Without the flag, no capture session or permission request starts. | Disabled-plugin test passes; GUI behavior awaits live checks. |
 | Composed output | Video contains the selected game's final rendering and UI, never another application's window. | Native window ID and current PID checks reviewed; actual video unverified. |
 | Shareable video | A finalized, playable SDR H.264 MP4 defaults to 1920×1080, up to 30 fps. | Native configuration and build verified; playable MP4 unverified. |
-| Fixed dimensions | The video takes the window's shape at the start, within the configured size (#3); resizing preserves output dimensions and source aspect ratio. | Native configuration reviewed; resize recording unverified. |
+| Fixed dimensions | The video shows the window's content without its title bar (#6), in its shape at the start, within the configured size (#3); resizing and full screen preserve output dimensions and source aspect ratio, and the crop follows them. | Native harness tests the crop and its tracking; resize recording unverified. |
 | Recording indicator | Visible state distinguishes preparing, recording, finalizing, saved and failure. | Title status and demo UI implemented; visual validation pending. |
 | Responsive capture | Capture and encoding do not block the render thread; capture queue is bounded. | Three-frame ScreenCaptureKit queue; no Rust frame queues, GPU waits or pipe writes. OS encoder internals have no exposed total-memory bound. |
 | Correct timing | Late/static frames preserve elapsed duration; audio/video remain synchronized under load. | Native timestamps used; duration and A/V sync unverified. Variable cadence is allowed; exact CFR is not required. |
@@ -72,6 +72,7 @@ Do not equate the unbundled preflight result with the permission state of a sepa
 | 2026-10-19 | Keep output local, microphone disabled, window and PID checked | Recording scope is the selected game window and its application's audio |
 | 2026-10-19 | Provide a named demo app bundle | Makes the manual permission target explicit; no automatic permission requests |
 | 2026-10-24 | The video takes the window's shape when recording starts, within `width` × `height` (#3) | Carlos chose it over 16:9 with bands after Solrac's first recordings showed a band down one side |
+| 2026-10-24 | The video shows the window's content, without its title bar (#6) | Carlos: a game's video shouldn't look like it was recorded; the title's state and macOS's capture indicator stay in the window for the player |
 | 2026-10-24 | The plugin owns every normal way to quit: window close, `terminate:` (⌘Q, Dock, logout) and Ctrl+C (#1) | Consumers can't refuse `terminate:` or replace Bevy's Ctrl+C handler without native code; Solrac forbids `unsafe` |
 | 2026-10-19 | Track requirements here and progress in root status.md | Follow the Rust repositories' milestone/gate conventions while keeping the user-requested paths |
 

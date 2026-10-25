@@ -10,6 +10,18 @@
     handler(nil);
 }
 @end
+// Keeps each crop it is given, and its completion handler, to finish it when the test says.
+@interface UpdatingStream : NSObject
+@property NSMutableArray<NSValue *> *crops;
+@property(copy) void (^finish)(NSError *);
+@end
+@implementation UpdatingStream
+- (void)updateConfiguration:(SCStreamConfiguration *)config completionHandler:(void (^)(NSError *))handler {
+    if (!self.crops) self.crops = [NSMutableArray array];
+    [self.crops addObject:[NSValue valueWithRect:config.sourceRect]];
+    self.finish = handler;
+}
+@end
 // Like winit's delegate: no applicationShouldTerminate: of its own.
 @interface PlainDelegate : NSObject <NSApplicationDelegate>
 @end
@@ -96,6 +108,47 @@ int main(void) {
         assert(w == 1920 && h == 1080); // Unmeasurable: the configured size.
         bgr_fit(1920, 1080, 1, 100000, &w, &h);
         assert(w == 1920 && h == 1080); // Too thin to encode: the configured size.
+
+        // The content's rectangle, from the window's top left, below its title bar.
+        CGRect crop = bgr_content(CGSizeMake(1440, 932), CGRectMake(0, 0, 1440, 900));
+        assert(CGRectEqualToRect(crop, CGRectMake(0, 32, 1440, 900))); // A titled window.
+        crop = bgr_content(CGSizeMake(1728, 1117), CGRectMake(0, 0, 1728, 1117));
+        assert(CGRectEqualToRect(crop, CGRectMake(0, 0, 1728, 1117))); // Full screen: no title bar.
+        crop = bgr_content(CGSizeMake(1440, 932), CGRectMake(8, 4, 1424, 900));
+        assert(CGRectEqualToRect(crop, CGRectMake(8, 28, 1424, 900))); // Measured from the top.
+        assert(CGRectIsNull(bgr_content(CGSizeMake(1440, 932), CGRectZero))); // Nothing to measure.
+
+        // A resize while recording crops to the new content, one update at a time, and the last
+        // resize wins. The window is never shown.
+        NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1440, 900) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:YES];
+        window.releasedWhenClosed = NO;
+        UpdatingStream *updates = [UpdatingStream new];
+        session = [BGRSession new]; session.state = 2;
+        session.stream = (SCStream *)(id)updates;
+        session.config = [SCStreamConfiguration new];
+        session.window = window;
+        [session track];
+        assert(updates.crops.count == 1);
+        crop = updates.crops[0].rectValue;
+        assert(crop.origin.x == 0 && crop.origin.y > 0 && crop.size.width == 1440 && crop.size.height == 900);
+        [window setContentSize:NSMakeSize(1200, 800)];
+        [session track];
+        [window setContentSize:NSMakeSize(1000, 700)];
+        [session track];
+        assert(updates.crops.count == 1); // Waits for the update in flight.
+        updates.finish(nil);
+        drain();
+        assert(updates.crops.count == 2);
+        crop = updates.crops[1].rectValue;
+        assert(crop.size.width == 1000 && crop.size.height == 700); // Straight to the last size.
+        updates.finish(nil);
+        drain();
+        [session track];
+        assert(updates.crops.count == 2); // Unchanged content: no update.
+        session.state = 3;
+        [window setContentSize:NSMakeSize(900, 600)];
+        [session track];
+        assert(updates.crops.count == 2); // Only while recording.
 
         puts("Native lifecycle tests passed (no capture or permission requests).");
     }

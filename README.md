@@ -28,7 +28,7 @@ cargo run --features demo --example demo -- --record gameplay.mp4
 
 Without `--record`, no capture or permission check occurs. The demo animates a square, renders a UI clock/status indicator, and plays a quiet looping 440 Hz tone. **Space** stops and saves; **Escape**, window close, **⌘Q** or **Ctrl+C** finalizes then quits. Keep the event loop running while “Stopping” is displayed. The title bar also shows recorder state. The demo's generated tone is included in `assets/tone.wav` and needs no download.
 
-Default output: the window's shape when recording starts, as large as fits in 1920×1080 (a 1440×932-point window gives 1668×1080, with no black bands), at most 30 fps, SDR H.264 MP4, stereo 48 kHz application audio. Apple controls bitrate and audio codec selection. Output dimensions stay fixed across window resizing, with aspect ratio preserved. Recording is timestamped media with potentially variable frame cadence, not guaranteed constant-frame-rate output. A delayed frame does not remove elapsed time by advancing a raw frame counter.
+Default output: the window's content, without its title bar, so the title's recorder state and macOS's capture indicator stay out of the video; in the content's shape when recording starts, as large as fits in 1920×1080 (a 1440×900-point content area gives 1728×1080, with no black bands), at most 30 fps, SDR H.264 MP4, stereo 48 kHz application audio. Apple controls bitrate and audio codec selection. Output dimensions stay fixed across window resizing and full screen, which the crop follows, with aspect ratio preserved. The window's rounded bottom corners show as small black corners. Recording is timestamped media with potentially variable frame cadence, not guaranteed constant-frame-rate output. A delayed frame does not remove elapsed time by advancing a raw frame counter.
 
 ## Permission
 
@@ -80,7 +80,7 @@ App::new()
     .run();
 ```
 
-The plugin expects a primary window with an exact, unique native title at startup, waits three update frames for creation, and verifies the selected native window belongs to the current process. Failure to resolve it fails closed. It does not fall back to a display or another application's window. Install after `DefaultPlugins`. Avoid changing the primary title independently; the recorder appends its visible status. Add an in-game indicator based on `Recorder.state` if the title bar is hidden (see demo).
+The plugin expects a primary window with an exact, unique native title at startup, waits three update frames for creation, and verifies the selected native window belongs to the current process. Failure to resolve it fails closed. It does not fall back to a display or another application's window. Install after `DefaultPlugins`. Avoid changing the primary title independently; the recorder appends its visible status, which the player sees and the video doesn't. Add an in-game indicator based on `Recorder.state` if the title bar is hidden (see demo); it will be in the video.
 
 Use `ResMut<Recorder>::stop()` to save without quitting, or `quit()` to save and quit. Route **all** game quit/menu actions through `quit()`. Direct `AppExit`, `process::exit`, panic/abort, force quit and signals other than Ctrl+C bypass graceful finalization. The plugin handles the rest of the ways to quit:
 
