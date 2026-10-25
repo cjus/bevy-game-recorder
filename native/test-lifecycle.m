@@ -78,6 +78,25 @@ int main(void) {
         session.state = 5;
         assert([NSApp.delegate applicationShouldTerminate:NSApp] == NSTerminateNow);
         assert(bgr_take_quit_request() == 0);
+        // The video takes the window's shape, as large as fits, with even sides.
+        int w, h;
+        bgr_fit(1920, 1080, 1600, 900, &w, &h);
+        assert(w == 1920 && h == 1080); // 16:9 fills it.
+        bgr_fit(1920, 1080, 1440, 932, &w, &h);
+        assert(w == 1668 && h == 1080); // Solrac's window: no band.
+        bgr_fit(1920, 1080, 2400, 900, &w, &h);
+        assert(w == 1920 && h == 720); // Wider: full width.
+        bgr_fit(1920, 1080, 801, 1201, &w, &h);
+        assert(w == 720 && h == 1080); // Taller, odd: full height, an even width.
+        bgr_fit(1920, 1080, 1441, 932, &w, &h);
+        assert(w == 1670 && h == 1080); // 1669.8 rounds to 1670, already even.
+        bgr_fit(1920, 1080, 1000, 648, &w, &h);
+        assert(w == 1666 && h == 1080); // 1666.7 rounds to 1667, made even: 1666.
+        bgr_fit(1920, 1080, 0, 900, &w, &h);
+        assert(w == 1920 && h == 1080); // Unmeasurable: the configured size.
+        bgr_fit(1920, 1080, 1, 100000, &w, &h);
+        assert(w == 1920 && h == 1080); // Too thin to encode: the configured size.
+
         puts("Native lifecycle tests passed (no capture or permission requests).");
     }
     return 0;

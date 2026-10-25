@@ -28,7 +28,7 @@ cargo run --features demo --example demo -- --record gameplay.mp4
 
 Without `--record`, no capture or permission check occurs. The demo animates a square, renders a UI clock/status indicator, and plays a quiet looping 440 Hz tone. **Space** stops and saves; **Escape**, window close, **⌘Q** or **Ctrl+C** finalizes then quits. Keep the event loop running while “Stopping” is displayed. The title bar also shows recorder state. The demo's generated tone is included in `assets/tone.wav` and needs no download.
 
-Default output: 1920×1080, at most 30 fps, SDR H.264 MP4, stereo 48 kHz application audio. Apple controls bitrate and audio codec selection. Output dimensions stay fixed across window resizing, with aspect ratio preserved. Recording is timestamped media with potentially variable frame cadence, not guaranteed constant-frame-rate output. A delayed frame does not remove elapsed time by advancing a raw frame counter.
+Default output: the window's shape when recording starts, as large as fits in 1920×1080 (a 1440×932-point window gives 1668×1080, with no black bands), at most 30 fps, SDR H.264 MP4, stereo 48 kHz application audio. Apple controls bitrate and audio codec selection. Output dimensions stay fixed across window resizing, with aspect ratio preserved. Recording is timestamped media with potentially variable frame cadence, not guaranteed constant-frame-rate output. A delayed frame does not remove elapsed time by advancing a raw frame counter.
 
 ## Permission
 

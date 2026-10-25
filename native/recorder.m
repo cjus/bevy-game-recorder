@@ -92,6 +92,24 @@ static void bgr_guard_termination(void) {
     installed = YES;
 }
 
+// The video takes the window's shape when recording starts, as large as fits in the configured
+// size, with even sides for H.264; a later resize is scaled to fit it, keeping its shape. A
+// window too small to measure gets the configured size.
+static void bgr_fit(int width, int height, double windowWidth, double windowHeight, int *outWidth, int *outHeight) {
+    *outWidth = width;
+    *outHeight = height;
+    if (!(windowWidth > 0 && windowHeight > 0)) return;
+    // The side that limits takes the whole size (even already); only the other is rounded.
+    int fitWidth = width, fitHeight = height;
+    if (windowWidth * height > windowHeight * width)
+        fitHeight = (int)lround(windowHeight * width / windowWidth) & ~1;
+    else
+        fitWidth = (int)lround(windowWidth * height / windowHeight) & ~1;
+    if (fitWidth < 2 || fitHeight < 2) return;
+    *outWidth = fitWidth;
+    *outHeight = fitHeight;
+}
+
 int bgr_is_main_thread(void) { return [NSThread isMainThread] ? 1 : 0; }
 int bgr_preflight(void) { return CGPreflightScreenCaptureAccess() ? 1 : 0; }
 int bgr_start(const char *path, const char *title, int width, int height, int fps, int audio) {
@@ -123,7 +141,9 @@ int bgr_start(const char *path, const char *title, int width, int height, int fp
             if (!target) { [session fail:@"Game window is unavailable for capture."]; return; }
             SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:target];
             SCStreamConfiguration *config = [SCStreamConfiguration new];
-            config.width = width; config.height = height;
+            int videoWidth, videoHeight;
+            bgr_fit(width, height, target.frame.size.width, target.frame.size.height, &videoWidth, &videoHeight);
+            config.width = videoWidth; config.height = videoHeight;
             config.minimumFrameInterval = CMTimeMake(1, fps);
             config.queueDepth = 3;
             config.scalesToFit = YES; config.preservesAspectRatio = YES;

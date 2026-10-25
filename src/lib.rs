@@ -7,13 +7,16 @@ mod plugin;
 #[cfg(feature = "bevy")]
 pub use plugin::{Recorder, RecorderPlugin};
 
-/// Fixed output configuration. Source window resizing does not change output size.
+/// Output configuration. The video takes the window's shape when recording starts, as large as
+/// fits in `width` x `height`; resizing the window later doesn't change the video's size.
 #[derive(Clone, Debug)]
 pub struct RecordingConfig {
     pub output: PathBuf,
     /// Exact, unique visible NSWindow title in this process at recording startup.
     pub window_title: String,
+    /// The widest video, in pixels (even).
     pub width: u32,
+    /// The tallest video, in pixels (even).
     pub height: u32,
     pub fps: u32,
     /// Capture this application's final OS audio mix, never the microphone.
