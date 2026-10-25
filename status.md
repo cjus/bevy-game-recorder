@@ -18,7 +18,7 @@ The plan and gates are in [docs/PRD.md](docs/PRD.md#milestones).
 
 - Repository: [cjus/bevy-game-recorder](https://github.com/cjus/bevy-game-recorder).
 - Working branch: [feat/macos-recorder](https://github.com/cjus/bevy-game-recorder/tree/feat/macos-recorder).
-- Latest validated implementation commit: `24863c4` (#1, ⌘Q, Dock Quit and Ctrl+C finalize the MP4), automated checks only; before it, [e738385](https://github.com/cjus/bevy-game-recorder/commit/e738385bea58b0388488fe48f2ac912796d94701). This tracking-document update sits on top of that baseline; use `git rev-parse HEAD` for the checkout's exact current documentation revision.
+- Latest validated implementation commit: `921ecab` (#3, the window's shape), automated checks and a live Solrac recording; before it, `24863c4` (#1, quit routes), then [e738385](https://github.com/cjus/bevy-game-recorder/commit/e738385bea58b0388488fe48f2ac912796d94701). This tracking-document update sits on top of that baseline; use `git rev-parse HEAD` for the checkout's exact current documentation revision.
 - **Implementation complete for the first version; live acceptance incomplete.** No release or main-branch merge has been performed.
 
 ## Completed implementation
@@ -28,7 +28,7 @@ The plan and gates are in [docs/PRD.md](docs/PRD.md#milestones).
 - macOS 15+ ScreenCaptureKit backend with exact native-window/current-PID selection, application audio enabled, microphone disabled, fixed output dimensions and asynchronous native encoding.
 - Three-frame capture queue, native timestamps, staged output, no-overwrite publication, visible failure reporting and shutdown timeout handling.
 - Independent review completed. Fixed late startup after cancellation and stale polling incorrectly overriding completed native output; regression coverage added.
-- **The video takes the window's shape (#3, 2026-10-24)**, as large as fits in the configured size, so a window that isn't 16:9 gets no black band; Carlos chose it after Solrac's first live recordings.
+- **The video takes the window's shape (#3, 2026-10-24)**, as large as fits in the configured size, so a window that isn't 16:9 gets no black band; Carlos chose it after Solrac's first live recordings. Checked live: Solrac's window recorded 1670×1080 (VALIDATION.md).
 - **First live recordings (2026-10-24, Solrac, cjus/chessgui#175):** three playable MP4s, through macOS's quit request and Ctrl+C; see VALIDATION.md. Not yet checked live: the window's close button, resizing, minimizing, denied permission, and A/V sync judged by ear and eye.
 - **Every normal way to quit finalizes first (#1, 2026-10-24).** ⌘Q, the Dock's Quit and logout (`-[NSApplication terminate:]`) used to end the process before the MP4 was finalized, because winit's delegate has no `applicationShouldTerminate:`. While a session is unfinished, a guard added to the delegate's class now refuses termination and the plugin turns the request into `quit()`. The plugin also owns Ctrl+C (Bevy's `TerminalCtrlCHandlerPlugin` must be disabled; the plugin checks), never starts a recording after an early quit, and asks for frames while starting or stopping. Found while integrating Solrac (cjus/chessgui#175).
 - Locally built `BevyRecorderDemo.app` with explicit bundle ID, bundled tone asset and verified ad-hoc signature. It has not been launched via LaunchServices for live capture.
