@@ -12,7 +12,7 @@ The plan and gates are in [docs/PRD.md](docs/PRD.md#milestones).
 | --- | --- | --- |
 | M0 · Foundations | Built; automated gate passed; pushed, not merged to main | `e738385` on `feat/macos-recorder` |
 | M1 · Live recording | Gate waiting on Carlos's permission setup and live checks; no playable output verified | Same feature branch |
-| M2 · Consumer integration | Started: Solrac (cjus/chessgui#175), authorized by Carlos 2026-10-24 | Recorder fixes the integration needs land here first (#1) |
+| M2 · Consumer integration | Solrac integrated: `--record`, merged in cjus/chessgui#202 (2026-10-24) at `14299b2`; Carlos approved its video | Recorder fixes the integration needed: #1, #3, #6 |
 
 ## Revision and overall state
 
