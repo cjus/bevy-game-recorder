@@ -66,7 +66,7 @@ int main(void) {
         NSApp.delegate = delegate;
         session = [BGRSession new]; session.state = 2;
         bgr_guard_termination();
-        assert(NSApp.delegate == delegate);
+        assert(NSApp.delegate == delegate); // Untouched: AppKit finds the added method itself.
         [NSApp terminate:nil]; // Refused: it returns, and the request is noted.
         assert(bgr_take_quit_request() == 1);
         assert(bgr_take_quit_request() == 0); // Taken once.

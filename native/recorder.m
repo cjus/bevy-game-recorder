@@ -75,6 +75,8 @@ static NSApplicationTerminateReply bgr_should_terminate(id self, SEL cmd, NSAppl
     return NSTerminateNow;
 }
 // Added to the delegate's class at run time (or wrapping the class's own method), once.
+// terminate: looks the method up when it is called, so the delegate needn't be set again (the
+// native harness checks this against AppKit's real terminate:).
 static void bgr_guard_termination(void) {
     static BOOL installed;
     id<NSApplicationDelegate> delegate = NSApp.delegate;
@@ -84,12 +86,9 @@ static void bgr_guard_termination(void) {
     const char *types = protocol_getMethodDescription(@protocol(NSApplicationDelegate), selector, NO, YES).types;
     Method inherited = class_getInstanceMethod(cls, selector);
     IMP before = inherited ? method_getImplementation(inherited) : NULL;
-    if (!class_addMethod(cls, selector, (IMP)bgr_should_terminate, types))
+    if (!class_addMethod(cls, selector, (IMP)bgr_should_terminate, types ? types : "Q@:@"))
         before = method_setImplementation(class_getInstanceMethod(cls, selector), (IMP)bgr_should_terminate);
     previousShouldTerminate = before;
-    // AppKit may note which optional methods a delegate answers when it is set: set it again.
-    NSApp.delegate = nil;
-    NSApp.delegate = delegate;
     installed = YES;
 }
 
