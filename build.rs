@@ -1,7 +1,9 @@
 use std::{env, path::PathBuf, process::Command};
 fn main() {
     println!("cargo:rerun-if-changed=native/recorder.m");
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
+    // docs.rs has no Xcode; rustdoc doesn't need the native object.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") || env::var_os("DOCS_RS").is_some()
+    {
         return;
     }
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());

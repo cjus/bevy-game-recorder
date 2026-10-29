@@ -1,5 +1,6 @@
 //! Opt-in macOS 15+ recording of one game window and its application's audio.
-//! See README for permission, lifecycle and integration requirements.
+//! See the [README](https://github.com/cjus/bevy-game-recorder#readme) for permission,
+//! lifecycle and integration requirements.
 use std::{ffi::CString, marker::PhantomData, path::PathBuf, rc::Rc};
 
 #[cfg(feature = "bevy")]
