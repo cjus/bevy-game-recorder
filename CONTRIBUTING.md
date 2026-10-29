@@ -29,3 +29,19 @@ Passing the automated checks doesn't prove a playable recording. Changes to the 
 7. Try denied or revoked permission, an existing output file, an unwritable or missing parent directory, and a full volume: errors are visible, existing files are untouched and staging is recoverable.
 
 Mention which of these you ran in your pull request. Keep test recordings out of the repository; `*.mp4` is ignored.
+
+## Releasing
+
+Releases publish to crates.io from GitHub Actions through [trusted publishing](https://crates.io/docs/trusted-publishing); no API token is stored anywhere.
+
+1. In a pull request, bump `version` in `Cargo.toml` and move the `Unreleased` notes in `CHANGELOG.md` under the new version.
+2. After it merges, tag `main` and push the tag:
+
+   ```sh
+   git switch main && git pull
+   git tag -a v0.2.0 -m "bevy-game-recorder 0.2.0"
+   git push origin v0.2.0
+   ```
+
+3. The `Release` workflow checks that the tag matches `Cargo.toml` and runs `cargo publish`. It runs in the `release` environment, which only accepts `v*` tags.
+4. Create the GitHub release from the tag with the changelog section as its notes.
