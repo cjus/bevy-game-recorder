@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.1]
+
+- Build the API docs on docs.rs for Linux. The 0.1.0 build targeted macOS and failed because a dependency's C build script passed Apple compiler flags to Linux's `cc`. No code changes.
+
 ## [0.1.0]
 
 First public release.
@@ -15,5 +19,6 @@ First public release.
 - Staged output with non-overwriting publication; failures are reported and partial output is kept for inspection.
 - Demo app, permission preflight example and a script to build a signed demo bundle.
 
-[Unreleased]: https://github.com/cjus/bevy-game-recorder/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/cjus/bevy-game-recorder/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/cjus/bevy-game-recorder/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/cjus/bevy-game-recorder/releases/tag/v0.1.0
