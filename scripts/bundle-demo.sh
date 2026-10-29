@@ -3,7 +3,7 @@
 # install, request permissions, or change macOS settings.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-"${CARGO:-cargo}" build --offline --features demo --example demo -j 2
+"${CARGO:-cargo}" build --features demo --example demo
 bundle="$PWD/target/BevyRecorderDemo.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources/assets"
 cp target/debug/examples/demo "$bundle/Contents/MacOS/bevy-recorder-demo"

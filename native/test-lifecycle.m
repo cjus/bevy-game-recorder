@@ -95,7 +95,7 @@ int main(void) {
         bgr_fit(1920, 1080, 1600, 900, &w, &h);
         assert(w == 1920 && h == 1080); // 16:9 fills it.
         bgr_fit(1920, 1080, 1440, 899, &w, &h);
-        assert(w == 1730 && h == 1080); // Solrac's content: no band.
+        assert(w == 1730 && h == 1080); // 1440×899 content: no band.
         bgr_fit(1920, 1080, 2400, 900, &w, &h);
         assert(w == 1920 && h == 720); // Wider: full width.
         bgr_fit(1920, 1080, 801, 1201, &w, &h);

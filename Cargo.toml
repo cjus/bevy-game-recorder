@@ -6,6 +6,23 @@ rust-version = "1.97.1"
 description = "Opt-in macOS window and application audio recording for Bevy"
 license = "MIT"
 repository = "https://github.com/cjus/bevy-game-recorder"
+readme = "README.md"
+keywords = ["bevy", "gamedev", "recording", "screencapturekit", "macos"]
+categories = ["game-development", "multimedia::video"]
+include = [
+    "/src",
+    "/native/recorder.m",
+    "/build.rs",
+    "/examples",
+    "/assets",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+]
+
+[package.metadata.docs.rs]
+default-target = "aarch64-apple-darwin"
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 
 [features]
 default = ["bevy"]
