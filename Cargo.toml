@@ -1,6 +1,6 @@
 [package]
 name = "bevy-game-recorder"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.97.1"
 description = "Opt-in macOS window and application audio recording for Bevy"
@@ -20,9 +20,10 @@ include = [
     "/CHANGELOG.md",
 ]
 
+# docs.rs builds on Linux, where dependencies' C build scripts can't take
+# Apple compiler flags. The public API is the same on every target.
 [package.metadata.docs.rs]
-default-target = "aarch64-apple-darwin"
-targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [features]
 default = ["bevy"]
